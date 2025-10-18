@@ -276,6 +276,111 @@
             opacity: 1;
         }
 
+        .delete-btn {
+            background: #e74c3c;
+            border: none;
+            color: white;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 12px;
+            line-height: 1;
+            transition: all 0.2s ease;
+            opacity: 0.7;
+            margin-left: 10px;
+        }
+
+        .delete-btn:hover {
+            background: #c0392b;
+            opacity: 1;
+            transform: scale(1.1);
+        }
+
+        .confirm-dialog {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .confirm-dialog.show {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .confirm-content {
+            background: linear-gradient(145deg, #1e2328 0%, #2a2e35 100%);
+            border: 2px solid #c89b3c;
+            border-radius: 10px;
+            padding: 30px;
+            text-align: center;
+            max-width: 400px;
+            transform: scale(0.8);
+            transition: transform 0.3s ease;
+        }
+
+        .confirm-dialog.show .confirm-content {
+            transform: scale(1);
+        }
+
+        .confirm-title {
+            color: #c89b3c;
+            font-size: 1.3rem;
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+
+        .confirm-message {
+            color: #f0e6d2;
+            margin-bottom: 25px;
+            line-height: 1.5;
+        }
+
+        .confirm-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+        }
+
+        .confirm-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.2s ease;
+        }
+
+        .confirm-btn.danger {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .confirm-btn.danger:hover {
+            background: #c0392b;
+            transform: translateY(-1px);
+        }
+
+        .confirm-btn.cancel {
+            background: #6c757d;
+            color: white;
+        }
+
+        .confirm-btn.cancel:hover {
+            background: #5a6268;
+            transform: translateY(-1px);
+        }
+
         .preset-section {
             background: rgba(255, 255, 255, 0.05);
             border-radius: 10px;
@@ -595,10 +700,14 @@
                                 <div class="player-name" data-nickname="${players[i].nickname}" title="点击复制ID">${players[i].nickname}</div>
                                 <div class="player-time">加入时间: ${players[i].joinTime}</div>
                             </div>
+                            <button class="delete-btn" data-team="${team}" data-index="${i}" title="删除玩家">×</button>
                         `;
 
                         const playerName = slot.querySelector('.player-name');
+                        const deleteBtn = slot.querySelector('.delete-btn');
+
                         playerName.addEventListener('click', (e) => this.copyToClipboard(e));
+                        deleteBtn.addEventListener('click', (e) => this.confirmDelete(e));
                     } else {
                         slot.className += ' empty-slot';
                         slot.textContent = '等待召唤师加入...';
@@ -731,6 +840,79 @@
                     tooltip.className = 'copy-tooltip';
                     document.body.appendChild(tooltip);
                 }
+                this.createConfirmDialog();
+            }
+
+            createConfirmDialog() {
+                if (!document.getElementById('confirm-dialog')) {
+                    const dialog = document.createElement('div');
+                    dialog.id = 'confirm-dialog';
+                    dialog.className = 'confirm-dialog';
+                    dialog.innerHTML = `
+                        <div class="confirm-content">
+                            <div class="confirm-title">确认删除</div>
+                            <div class="confirm-message" id="confirm-message">确定要删除这个玩家吗？</div>
+                            <div class="confirm-buttons">
+                                <button class="confirm-btn danger" id="confirm-yes">确认删除</button>
+                                <button class="confirm-btn cancel" id="confirm-no">取消</button>
+                            </div>
+                        </div>
+                    `;
+                    document.body.appendChild(dialog);
+
+                    // 绑定事件
+                    document.getElementById('confirm-yes').addEventListener('click', () => this.executeDelete());
+                    document.getElementById('confirm-no').addEventListener('click', () => this.hideConfirmDialog());
+                    dialog.addEventListener('click', (e) => {
+                        if (e.target === dialog) this.hideConfirmDialog();
+                    });
+                }
+            }
+
+            confirmDelete(e) {
+                e.preventDefault();
+                e.stopPropagation();
+
+                const team = e.target.dataset.team;
+                const index = parseInt(e.target.dataset.index);
+                const players = team === 'blue' ? this.blueTeam : this.redTeam;
+                const player = players[index];
+
+                this.pendingDelete = { team, index, player };
+
+                const message = document.getElementById('confirm-message');
+                message.innerHTML = `确定要删除 <strong style="color: #c89b3c;">${player.nickname}</strong> 吗？`;
+
+                this.showConfirmDialog();
+            }
+
+            executeDelete() {
+                if (!this.pendingDelete) return;
+
+                const { team, index } = this.pendingDelete;
+
+                if (team === 'blue') {
+                    this.blueTeam.splice(index, 1);
+                } else {
+                    this.redTeam.splice(index, 1);
+                }
+
+                this.saveToStorage();
+                this.updateDisplay();
+                this.hideConfirmDialog();
+                this.showSuccess(`已成功删除 ${this.pendingDelete.player.nickname}`);
+
+                this.pendingDelete = null;
+            }
+
+            showConfirmDialog() {
+                const dialog = document.getElementById('confirm-dialog');
+                dialog.classList.add('show');
+            }
+
+            hideConfirmDialog() {
+                const dialog = document.getElementById('confirm-dialog');
+                dialog.classList.remove('show');
             }
 
             async copyToClipboard(e) {
