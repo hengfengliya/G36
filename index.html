@@ -437,8 +437,8 @@
 
             <h3>加入战斗</h3>
             <div class="form-group">
-                <label class="form-label" for="nickname">召唤师名称 (格式: 昵称##数字)</label>
-                <input type="text" id="nickname" class="form-input" placeholder="例如: 小明##1234">
+                <label class="form-label" for="nickname">召唤师名称 (格式: 昵称#数字)</label>
+                <input type="text" id="nickname" class="form-input" placeholder="例如: 鲸落万物生#87333">
             </div>
 
             <div class="team-select">
@@ -458,10 +458,10 @@
                 this.redTeam = [];
                 this.selectedTeam = null;
                 this.presetIds = [
-                    '小明##1234', '小红##5678', '王者##9999', '菜鸟##0001',
-                    '高手##8888', '新手##2022', '老鸟##1999', '萌新##2024',
-                    '大神##6666', '青铜##1111', '白银##2222', '黄金##3333',
-                    '铂金##4444', '钻石##5555', '大师##7777', '王者##0000'
+                    '鲸落万物生#87333', '倾城、时幻#30676', 'SonAToR#56854', 'AromZZZ#25664',
+                    '无敌上单大王#31821', '天才唐老鸭#71331', '芝麻汤圆#73998', 'AeolianX#86526',
+                    'Xmolo#25102', 'CodyTravers#66091', '游戏大神#88888', '红蒲英#22222',
+                    '召唤师#99999', '菜鸟一只#11111', '大师级#77777', '新手上路#33333'
                 ];
                 this.init();
             }
@@ -501,13 +501,13 @@
 
             validateInput() {
                 const nickname = document.getElementById('nickname').value.trim();
-                const pattern = /^.+##\d+$/;
+                const pattern = /^.+#\d+$/;
                 const isValid = pattern.test(nickname);
 
                 document.getElementById('join-btn').disabled = !isValid || !this.selectedTeam;
 
                 if (nickname && !isValid) {
-                    this.showError('请输入正确格式的昵称 (例如: 小明##1234)');
+                    this.showError('请输入正确格式的昵称 (例如: 鲸落万物生#87333)');
                 } else {
                     this.showError('');
                 }
@@ -548,9 +548,9 @@
             }
 
             validateNickname(nickname) {
-                const pattern = /^.+##\d+$/;
+                const pattern = /^.+#\d+$/;
                 if (!pattern.test(nickname)) {
-                    this.showError('请输入正确格式的昵称 (例如: 小明##1234)');
+                    this.showError('请输入正确格式的昵称 (例如: 鲸落万物生#87333)');
                     return false;
                 }
 
@@ -655,10 +655,10 @@
 
             savePresetsToStorage() {
                 const customPresets = this.presetIds.filter(id =>
-                    !['小明##1234', '小红##5678', '王者##9999', '菜鸟##0001',
-                     '高手##8888', '新手##2022', '老鸟##1999', '萌新##2024',
-                     '大神##6666', '青铜##1111', '白银##2222', '黄金##3333',
-                     '铂金##4444', '钻石##5555', '大师##7777', '王者##0000'].includes(id)
+                    !['鲸落万物生#87333', '倾城、时幻#30676', 'SonAToR#56854', 'AromZZZ#25664',
+                     '无敌上单大王#31821', '天才唐老鸭#71331', '芝麻汤圆#73998', 'AeolianX#86526',
+                     'Xmolo#25102', 'CodyTravers#66091', '游戏大神#88888', '红蒲英#22222',
+                     '召唤师#99999', '菜鸟一只#11111', '大师级#77777', '新手上路#33333'].includes(id)
                 );
                 localStorage.setItem('lol-presets', JSON.stringify(customPresets));
             }
@@ -699,7 +699,7 @@
                 const searchInput = document.getElementById('search-input');
                 const value = searchInput.value.trim();
 
-                if (value && /^.+##\d+$/.test(value)) {
+                if (value && /^.+#\d+$/.test(value)) {
                     this.selectPreset(value);
                     if (!this.presetIds.includes(value)) {
                         this.presetIds.push(value);
