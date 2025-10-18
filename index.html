@@ -4,6 +4,39 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>英雄联盟5v5预约对战</title>
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getDatabase, ref, set, onValue, push, remove } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
+
+        // Firebase配置 (这是示例配置，需要替换为实际项目配置)
+        const firebaseConfig = {
+            apiKey: "AIzaSyBxyz123456789abcdefghijklmnopqrstuvw",
+            authDomain: "lol-booking-demo.firebaseapp.com",
+            databaseURL: "https://lol-booking-demo-default-rtdb.firebaseio.com",
+            projectId: "lol-booking-demo",
+            storageBucket: "lol-booking-demo.appspot.com",
+            messagingSenderId: "123456789012",
+            appId: "1:123456789012:web:abcdef0123456789abcdef"
+        };
+
+        // 初始化Firebase
+        const app = initializeApp(firebaseConfig);
+        const database = getDatabase(app);
+
+        // 将Firebase相关功能添加到全局对象
+        window.firebaseDB = {
+            database,
+            ref,
+            set,
+            onValue,
+            push,
+            remove
+        };
+
+        // 触发应用初始化
+        window.dispatchEvent(new Event('firebaseReady'));
+    </script>
     <style>
         * {
             margin: 0;
@@ -231,6 +264,33 @@
             color: #e74c3c;
             margin-top: 10px;
             font-size: 0.9rem;
+        }
+
+        .connection-status {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            z-index: 1000;
+            transition: all 0.3s ease;
+        }
+
+        .connection-status.online {
+            background: #27ae60;
+            color: white;
+        }
+
+        .connection-status.offline {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .connection-status.connecting {
+            background: #f39c12;
+            color: white;
         }
 
         .player-name {
@@ -488,6 +548,7 @@
 </head>
 <body>
     <div class="container">
+        <div class="connection-status" id="connection-status">连接中...</div>
         <div class="header">
             <h1 class="title">英雄联盟5v5预约对战</h1>
             <p class="subtitle">召唤师，准备好战斗了吗？</p>
@@ -562,13 +623,94 @@
                 this.blueTeam = [];
                 this.redTeam = [];
                 this.selectedTeam = null;
+                this.isOnline = false;
+                this.connectionStatus = document.getElementById('connection-status');
                 this.presetIds = [
                     '鲸落万物生#87333', '倾城、时幻#30676', 'SonAToR#56854', 'AromZZZ#25664',
                     '无敌上单大王#31821', '天才唐老鸭#71331', '芝麻汤圆#73998', 'AeolianX#86526',
                     'Xmolo#25102', 'CodyTravers#66091', '游戏大神#88888', '红蒲英#22222',
                     '召唤师#99999', '菜鸟一只#11111', '大师级#77777', '新手上路#33333'
                 ];
+
+                // 等待Firebase准备就绪
+                if (window.firebaseDB) {
+                    this.initFirebase();
+                } else {
+                    window.addEventListener('firebaseReady', () => this.initFirebase());
+                }
+            }
+
+            initFirebase() {
+                this.updateConnectionStatus('connecting');
+
+                try {
+                    const { database, ref, onValue } = window.firebaseDB;
+
+                    // 监听蓝色方数据变化
+                    const blueRef = ref(database, 'teams/blue');
+                    onValue(blueRef, (snapshot) => {
+                        const data = snapshot.val();
+                        this.blueTeam = data ? Object.values(data) : [];
+                        this.updateTeamDisplay('blue', this.blueTeam);
+                    }, (error) => {
+                        console.error('蓝色方数据监听错误:', error);
+                        this.fallbackToLocal();
+                    });
+
+                    // 监听红色方数据变化
+                    const redRef = ref(database, 'teams/red');
+                    onValue(redRef, (snapshot) => {
+                        const data = snapshot.val();
+                        this.redTeam = data ? Object.values(data) : [];
+                        this.updateTeamDisplay('red', this.redTeam);
+                    }, (error) => {
+                        console.error('红色方数据监听错误:', error);
+                        this.fallbackToLocal();
+                    });
+
+                    // 监听预设ID变化
+                    const presetsRef = ref(database, 'presets');
+                    onValue(presetsRef, (snapshot) => {
+                        const data = snapshot.val();
+                        if (data) {
+                            const customPresets = Object.values(data);
+                            this.presetIds = [...new Set([...this.presetIds, ...customPresets])];
+                            this.initPresetTags();
+                        }
+                    });
+
+                    this.isOnline = true;
+                    this.updateConnectionStatus('online');
+                    this.init();
+
+                } catch (error) {
+                    console.error('Firebase初始化失败:', error);
+                    this.fallbackToLocal();
+                }
+            }
+
+            fallbackToLocal() {
+                this.isOnline = false;
+                this.updateConnectionStatus('offline');
+                this.loadFromStorage();
                 this.init();
+            }
+
+            updateConnectionStatus(status) {
+                const statusElement = this.connectionStatus;
+                statusElement.className = `connection-status ${status}`;
+
+                switch(status) {
+                    case 'online':
+                        statusElement.textContent = '🟢 在线同步';
+                        break;
+                    case 'offline':
+                        statusElement.textContent = '🔴 离线模式';
+                        break;
+                    case 'connecting':
+                        statusElement.textContent = '🟡 连接中...';
+                        break;
+                }
             }
 
             init() {
@@ -739,7 +881,28 @@
                 }, 3000);
             }
 
-            saveToStorage() {
+            async saveToStorage() {
+                if (this.isOnline) {
+                    try {
+                        const { database, ref, set } = window.firebaseDB;
+
+                        // 保存到Firebase
+                        await Promise.all([
+                            set(ref(database, 'teams/blue'), this.blueTeam.length > 0 ? this.blueTeam : null),
+                            set(ref(database, 'teams/red'), this.redTeam.length > 0 ? this.redTeam : null)
+                        ]);
+
+                    } catch (error) {
+                        console.error('Firebase保存失败，切换到本地存储:', error);
+                        this.fallbackToLocal();
+                        this.saveToLocalStorage();
+                    }
+                } else {
+                    this.saveToLocalStorage();
+                }
+            }
+
+            saveToLocalStorage() {
                 const data = {
                     blueTeam: this.blueTeam,
                     redTeam: this.redTeam
@@ -748,28 +911,46 @@
             }
 
             loadFromStorage() {
-                const stored = localStorage.getItem('lol-booking');
-                if (stored) {
-                    const data = JSON.parse(stored);
-                    this.blueTeam = data.blueTeam || [];
-                    this.redTeam = data.redTeam || [];
-                }
+                // 只在离线模式下从localStorage加载
+                if (!this.isOnline) {
+                    const stored = localStorage.getItem('lol-booking');
+                    if (stored) {
+                        const data = JSON.parse(stored);
+                        this.blueTeam = data.blueTeam || [];
+                        this.redTeam = data.redTeam || [];
+                    }
 
-                const storedPresets = localStorage.getItem('lol-presets');
-                if (storedPresets) {
-                    const customPresets = JSON.parse(storedPresets);
-                    this.presetIds = [...new Set([...this.presetIds, ...customPresets])];
+                    const storedPresets = localStorage.getItem('lol-presets');
+                    if (storedPresets) {
+                        const customPresets = JSON.parse(storedPresets);
+                        this.presetIds = [...new Set([...this.presetIds, ...customPresets])];
+                    }
                 }
             }
 
-            savePresetsToStorage() {
+            async savePresetsToStorage() {
                 const customPresets = this.presetIds.filter(id =>
                     !['鲸落万物生#87333', '倾城、时幻#30676', 'SonAToR#56854', 'AromZZZ#25664',
                      '无敌上单大王#31821', '天才唐老鸭#71331', '芝麻汤圆#73998', 'AeolianX#86526',
                      'Xmolo#25102', 'CodyTravers#66091', '游戏大神#88888', '红蒲英#22222',
                      '召唤师#99999', '菜鸟一只#11111', '大师级#77777', '新手上路#33333'].includes(id)
                 );
-                localStorage.setItem('lol-presets', JSON.stringify(customPresets));
+
+                if (this.isOnline && customPresets.length > 0) {
+                    try {
+                        const { database, ref, set } = window.firebaseDB;
+                        const presetsObj = {};
+                        customPresets.forEach((preset, index) => {
+                            presetsObj[`preset_${index}`] = preset;
+                        });
+                        await set(ref(database, 'presets'), presetsObj);
+                    } catch (error) {
+                        console.error('Firebase预设保存失败:', error);
+                        localStorage.setItem('lol-presets', JSON.stringify(customPresets));
+                    }
+                } else {
+                    localStorage.setItem('lol-presets', JSON.stringify(customPresets));
+                }
             }
 
             initPresetTags() {
