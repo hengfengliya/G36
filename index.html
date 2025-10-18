@@ -233,6 +233,134 @@
             font-size: 0.9rem;
         }
 
+        .player-name {
+            cursor: pointer;
+            user-select: none;
+            position: relative;
+            transition: all 0.2s ease;
+        }
+
+        .player-name:hover {
+            color: #c89b3c;
+            transform: scale(1.02);
+        }
+
+        .player-name::after {
+            content: '📋';
+            position: absolute;
+            right: -25px;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+            font-size: 0.8em;
+        }
+
+        .player-name:hover::after {
+            opacity: 1;
+        }
+
+        .copy-tooltip {
+            position: fixed;
+            background: #c89b3c;
+            color: #1e2328;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            z-index: 1000;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .copy-tooltip.show {
+            opacity: 1;
+        }
+
+        .preset-section {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(200, 155, 60, 0.3);
+        }
+
+        .preset-title {
+            color: #c89b3c;
+            font-size: 1.1rem;
+            font-weight: bold;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+
+        .search-container {
+            position: relative;
+            margin-bottom: 15px;
+        }
+
+        .search-input {
+            width: 100%;
+            max-width: 400px;
+            padding: 10px 40px 10px 15px;
+            border: 2px solid #463714;
+            border-radius: 5px;
+            background: #1e2328;
+            color: #f0e6d2;
+            font-size: 1rem;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: #c89b3c;
+        }
+
+        .search-clear {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: #c89b3c;
+            cursor: pointer;
+            font-size: 1.2rem;
+            padding: 5px;
+        }
+
+        .preset-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            justify-content: center;
+        }
+
+        .preset-tag {
+            background: rgba(200, 155, 60, 0.2);
+            border: 1px solid #c89b3c;
+            color: #f0e6d2;
+            padding: 5px 12px;
+            border-radius: 15px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.2s ease;
+            user-select: none;
+        }
+
+        .preset-tag:hover {
+            background: rgba(200, 155, 60, 0.4);
+            transform: translateY(-1px);
+        }
+
+        .preset-tag.hidden {
+            display: none;
+        }
+
+        .no-results {
+            text-align: center;
+            color: rgba(255, 255, 255, 0.5);
+            font-style: italic;
+            padding: 20px;
+        }
+
         @media (max-width: 768px) {
             .battlefield {
                 flex-direction: column;
@@ -295,6 +423,18 @@
         </div>
 
         <div class="join-form">
+            <div class="preset-section">
+                <div class="preset-title">🔍 快速选择召唤师</div>
+                <div class="search-container">
+                    <input type="text" id="search-input" class="search-input" placeholder="搜索或输入新的召唤师名称...">
+                    <button class="search-clear" id="search-clear">×</button>
+                </div>
+                <div class="preset-tags" id="preset-tags">
+                    <!-- 预设标签将在这里动态生成 -->
+                </div>
+                <div class="no-results" id="no-results" style="display: none;">没有找到匹配的召唤师</div>
+            </div>
+
             <h3>加入战斗</h3>
             <div class="form-group">
                 <label class="form-label" for="nickname">召唤师名称 (格式: 昵称##数字)</label>
@@ -317,6 +457,12 @@
                 this.blueTeam = [];
                 this.redTeam = [];
                 this.selectedTeam = null;
+                this.presetIds = [
+                    '小明##1234', '小红##5678', '王者##9999', '菜鸟##0001',
+                    '高手##8888', '新手##2022', '老鸟##1999', '萌新##2024',
+                    '大神##6666', '青铜##1111', '白银##2222', '黄金##3333',
+                    '铂金##4444', '钻石##5555', '大师##7777', '王者##0000'
+                ];
                 this.init();
             }
 
@@ -324,14 +470,25 @@
                 this.bindEvents();
                 this.loadFromStorage();
                 this.updateDisplay();
+                this.initPresetTags();
+                this.createTooltip();
             }
 
             bindEvents() {
                 const nicknameInput = document.getElementById('nickname');
+                const searchInput = document.getElementById('search-input');
+                const searchClear = document.getElementById('search-clear');
                 const teamOptions = document.querySelectorAll('.team-option');
                 const joinBtn = document.getElementById('join-btn');
 
                 nicknameInput.addEventListener('input', () => this.validateInput());
+                searchInput.addEventListener('input', (e) => this.handleSearch(e));
+                searchInput.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        this.selectFromSearch();
+                    }
+                });
+                searchClear.addEventListener('click', () => this.clearSearch());
 
                 teamOptions.forEach(option => {
                     option.addEventListener('click', (e) => {
@@ -435,10 +592,13 @@
                     if (players[i]) {
                         slot.innerHTML = `
                             <div class="player-info">
-                                <div class="player-name">${players[i].nickname}</div>
+                                <div class="player-name" data-nickname="${players[i].nickname}" title="点击复制ID">${players[i].nickname}</div>
                                 <div class="player-time">加入时间: ${players[i].joinTime}</div>
                             </div>
                         `;
+
+                        const playerName = slot.querySelector('.player-name');
+                        playerName.addEventListener('click', (e) => this.copyToClipboard(e));
                     } else {
                         slot.className += ' empty-slot';
                         slot.textContent = '等待召唤师加入...';
@@ -484,6 +644,135 @@
                     const data = JSON.parse(stored);
                     this.blueTeam = data.blueTeam || [];
                     this.redTeam = data.redTeam || [];
+                }
+
+                const storedPresets = localStorage.getItem('lol-presets');
+                if (storedPresets) {
+                    const customPresets = JSON.parse(storedPresets);
+                    this.presetIds = [...new Set([...this.presetIds, ...customPresets])];
+                }
+            }
+
+            savePresetsToStorage() {
+                const customPresets = this.presetIds.filter(id =>
+                    !['小明##1234', '小红##5678', '王者##9999', '菜鸟##0001',
+                     '高手##8888', '新手##2022', '老鸟##1999', '萌新##2024',
+                     '大神##6666', '青铜##1111', '白银##2222', '黄金##3333',
+                     '铂金##4444', '钻石##5555', '大师##7777', '王者##0000'].includes(id)
+                );
+                localStorage.setItem('lol-presets', JSON.stringify(customPresets));
+            }
+
+            initPresetTags() {
+                const container = document.getElementById('preset-tags');
+                container.innerHTML = '';
+
+                this.presetIds.forEach(id => {
+                    const tag = document.createElement('div');
+                    tag.className = 'preset-tag';
+                    tag.textContent = id;
+                    tag.addEventListener('click', () => this.selectPreset(id));
+                    container.appendChild(tag);
+                });
+            }
+
+            handleSearch(e) {
+                const query = e.target.value.toLowerCase().trim();
+                const tags = document.querySelectorAll('.preset-tag');
+                const noResults = document.getElementById('no-results');
+                let hasResults = false;
+
+                tags.forEach(tag => {
+                    const text = tag.textContent.toLowerCase();
+                    if (text.includes(query)) {
+                        tag.classList.remove('hidden');
+                        hasResults = true;
+                    } else {
+                        tag.classList.add('hidden');
+                    }
+                });
+
+                noResults.style.display = query && !hasResults ? 'block' : 'none';
+            }
+
+            selectFromSearch() {
+                const searchInput = document.getElementById('search-input');
+                const value = searchInput.value.trim();
+
+                if (value && /^.+##\d+$/.test(value)) {
+                    this.selectPreset(value);
+                    if (!this.presetIds.includes(value)) {
+                        this.presetIds.push(value);
+                        this.savePresetsToStorage();
+                        this.initPresetTags();
+                    }
+                }
+            }
+
+            selectPreset(id) {
+                document.getElementById('nickname').value = id;
+                document.getElementById('search-input').value = '';
+                this.clearSearch();
+                this.validateInput();
+            }
+
+            clearSearch() {
+                document.getElementById('search-input').value = '';
+                document.querySelectorAll('.preset-tag').forEach(tag => {
+                    tag.classList.remove('hidden');
+                });
+                document.getElementById('no-results').style.display = 'none';
+            }
+
+            createTooltip() {
+                if (!document.getElementById('copy-tooltip')) {
+                    const tooltip = document.createElement('div');
+                    tooltip.id = 'copy-tooltip';
+                    tooltip.className = 'copy-tooltip';
+                    document.body.appendChild(tooltip);
+                }
+            }
+
+            async copyToClipboard(e) {
+                const nickname = e.target.dataset.nickname;
+                const tooltip = document.getElementById('copy-tooltip');
+
+                try {
+                    await navigator.clipboard.writeText(nickname);
+
+                    tooltip.textContent = '已复制到剪贴板!';
+                    tooltip.style.left = e.pageX + 'px';
+                    tooltip.style.top = (e.pageY - 40) + 'px';
+                    tooltip.classList.add('show');
+
+                    setTimeout(() => {
+                        tooltip.classList.remove('show');
+                    }, 2000);
+
+                } catch (err) {
+                    // 降级方案：使用旧的复制方法
+                    const textArea = document.createElement('textarea');
+                    textArea.value = nickname;
+                    document.body.appendChild(textArea);
+                    textArea.focus();
+                    textArea.select();
+
+                    try {
+                        document.execCommand('copy');
+                        tooltip.textContent = '已复制到剪贴板!';
+                    } catch (err2) {
+                        tooltip.textContent = '复制失败';
+                    }
+
+                    document.body.removeChild(textArea);
+
+                    tooltip.style.left = e.pageX + 'px';
+                    tooltip.style.top = (e.pageY - 40) + 'px';
+                    tooltip.classList.add('show');
+
+                    setTimeout(() => {
+                        tooltip.classList.remove('show');
+                    }, 2000);
                 }
             }
         }
