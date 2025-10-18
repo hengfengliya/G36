@@ -1,0 +1,23 @@
+{
+  "name": "lol-5v5-booking",
+  "version": "1.0.0",
+  "description": "英雄联盟5v5预约对战页面",
+  "main": "index.html",
+  "scripts": {
+    "dev": "python -m http.server 8000",
+    "build": "echo 'No build process needed for static HTML'"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yourusername/lol-5v5-booking.git"
+  },
+  "keywords": [
+    "lol",
+    "league-of-legends",
+    "5v5",
+    "booking",
+    "html"
+  ],
+  "author": "Your Name",
+  "license": "MIT"
+}
