@@ -10,7 +10,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/yourusername/lol-5v5-booking.git"
+    "url": "git+https://github.com/hengfengliya/G36.git"
   },
   "keywords": [
     "lol",
@@ -19,6 +19,6 @@
     "booking",
     "html"
   ],
-  "author": "Your Name",
+  "author": "hengfengliya",
   "license": "MIT"
 }

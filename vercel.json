@@ -1,29 +1,14 @@
 {
-  "version": 2,
-  "name": "lol-5v5-booking",
-  "builds": [
+  "rewrites": [
     {
-      "src": "index.html",
-      "use": "@vercel/static"
-    },
-    {
-      "src": "api/**/*.js",
-      "use": "@vercel/node"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "/api/$1"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/index.html"
+      "source": "/api/:path*",
+      "destination": "/api/:path*"
     }
   ],
   "functions": {
     "api/teams.js": {
-      "memory": 128
+      "memory": 128,
+      "maxDuration": 10
     }
   }
 }
