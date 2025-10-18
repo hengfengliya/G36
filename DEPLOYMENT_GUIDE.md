@@ -38,6 +38,7 @@
 ```
 https://gist.github.com/username/a1b2c3d4e5f6g7h8i9j0
 ```
+真实id：https://gist.github.com/hengfengliya/e4a84ee895f7395615f1de2799904ab0
 
 其中 `a1b2c3d4e5f6g7h8i9j0` 就是你的 **Gist ID**
 
