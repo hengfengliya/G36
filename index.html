@@ -12,22 +12,17 @@
             filename: 'lol-booking-data.json'
         };
 
-        // 免费JSON存储API - JSONBin.io
+        // Vercel API客户端
         window.gistDB = {
-            // 使用JSONBin免费服务 (支持匿名读写，中国可访问)
-            binId: '674259b0e41b4d34e4519a4a',
-            apiUrl: 'https://api.jsonbin.io/v3/b',
+            // 使用Vercel的API Routes
+            apiUrl: '/api/teams',
 
             // 读取数据
             async getData() {
                 try {
-                    const response = await fetch(`${this.apiUrl}/${this.binId}/latest`, {
-                        headers: {
-                            'X-Master-Key': '$2a$10$VWaP8P5rQ9FJy5TUGp6qO.9rJYJ5QXvJ8Lk7D2FQp3MzKNL4Hn6fG'
-                        }
-                    });
-                    const result = await response.json();
-                    return result.record || { teams: { blue: [], red: [] }, presets: [] };
+                    const response = await fetch(this.apiUrl);
+                    const data = await response.json();
+                    return data || { teams: { blue: [], red: [] }, presets: [] };
                 } catch (error) {
                     console.error('读取数据失败:', error);
                     return { teams: { blue: [], red: [] }, presets: [] };
@@ -37,19 +32,16 @@
             // 保存数据
             async saveData(data) {
                 try {
-                    const response = await fetch(`${this.apiUrl}/${this.binId}`, {
-                        method: 'PUT',
+                    const response = await fetch(this.apiUrl, {
+                        method: 'POST',
                         headers: {
-                            'Content-Type': 'application/json',
-                            'X-Master-Key': '$2a$10$VWaP8P5rQ9FJy5TUGp6qO.9rJYJ5QXvJ8Lk7D2FQp3MzKNL4Hn6fG'
+                            'Content-Type': 'application/json'
                         },
-                        body: JSON.stringify({
-                            ...data,
-                            lastUpdated: new Date().toISOString()
-                        })
+                        body: JSON.stringify(data)
                     });
 
-                    return response.ok;
+                    const result = await response.json();
+                    return response.ok && result.success;
                 } catch (error) {
                     console.error('保存数据失败:', error);
                     return false;
