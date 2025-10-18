@@ -4,16 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>英雄联盟5v5预约对战</title>
-    <!-- GitHub Gist作为免费数据库 (完全免费，中国可访问) -->
+    <!-- Vercel API Routes 作为数据库 (完全免费，支持读写) -->
     <script>
-        // GitHub Gist配置 (免费，无需申请，中国可访问)
-        const gistConfig = {
-            gistId: 'e4a84ee895f7395615f1de2799904ab0', // 真实的Gist ID
-            filename: 'lol-booking-data.json'
-        };
-
         // Vercel API客户端
-        window.gistDB = {
+        window.apiClient = {
             // 使用Vercel的API Routes
             apiUrl: '/api/teams',
 
@@ -647,8 +641,8 @@
                     '召唤师#99999', '菜鸟一只#11111', '大师级#77777', '新手上路#33333'
                 ];
 
-                // 等待Gist数据库准备就绪
-                if (window.gistDB) {
+                // 等待API客户端准备就绪
+                if (window.apiClient) {
                     this.initDatabase();
                 } else {
                     window.addEventListener('databaseReady', () => this.initDatabase());
@@ -659,8 +653,8 @@
                 this.updateConnectionStatus('connecting');
 
                 try {
-                    // 从Gist加载初始数据
-                    const data = await window.gistDB.getData();
+                    // 从Vercel API加载初始数据
+                    const data = await window.apiClient.getData();
                     this.blueTeam = data.teams?.blue || [];
                     this.redTeam = data.teams?.red || [];
 
@@ -691,7 +685,7 @@
                 this.pollingInterval = setInterval(async () => {
                     if (this.isOnline) {
                         try {
-                            const data = await window.gistDB.getData();
+                            const data = await window.apiClient.getData();
 
                             // 检查数据是否有变化
                             const newBlue = data.teams?.blue || [];
@@ -915,7 +909,7 @@
                             lastUpdated: new Date().toISOString()
                         };
 
-                        const success = await window.gistDB.saveData(data);
+                        const success = await window.apiClient.saveData(data);
                         if (!success) {
                             throw new Error('保存失败');
                         }
