@@ -1,39 +1,42 @@
 // Vercel API Route for managing team data
+// 使用/tmp目录存储数据（Vercel Serverless Functions的临时存储）
 import fs from 'fs';
 import path from 'path';
 
-const dataFile = path.join(process.cwd(), 'data', 'teams.json');
+// 使用/tmp目录，这是Vercel Serverless Functions唯一可写的目录
+const dataFile = path.join('/tmp', 'teams.json');
 
-// 确保数据目录存在
-function ensureDataDir() {
-  const dataDir = path.dirname(dataFile);
-  if (!fs.existsSync(dataDir)) {
-    fs.mkdirSync(dataDir, { recursive: true });
-  }
-}
+// 初始数据
+const getInitialData = () => ({
+  teams: { blue: [], red: [] },
+  presets: [],
+  lastUpdated: new Date().toISOString()
+});
 
 // 读取数据
 function readData() {
-  ensureDataDir();
-  if (!fs.existsSync(dataFile)) {
-    const initialData = {
-      teams: { blue: [], red: [] },
-      presets: [],
-      lastUpdated: new Date().toISOString()
-    };
-    fs.writeFileSync(dataFile, JSON.stringify(initialData, null, 2));
-    return initialData;
+  try {
+    if (fs.existsSync(dataFile)) {
+      const data = fs.readFileSync(dataFile, 'utf8');
+      return JSON.parse(data);
+    }
+  } catch (error) {
+    console.error('读取数据失败:', error);
   }
-
-  const data = fs.readFileSync(dataFile, 'utf8');
-  return JSON.parse(data);
+  // 如果文件不存在或读取失败，返回初始数据
+  return getInitialData();
 }
 
 // 写入数据
 function writeData(data) {
-  ensureDataDir();
-  data.lastUpdated = new Date().toISOString();
-  fs.writeFileSync(dataFile, JSON.stringify(data, null, 2));
+  try {
+    data.lastUpdated = new Date().toISOString();
+    fs.writeFileSync(dataFile, JSON.stringify(data, null, 2));
+    return true;
+  } catch (error) {
+    console.error('写入数据失败:', error);
+    return false;
+  }
 }
 
 export default function handler(req, res) {
@@ -56,8 +59,13 @@ export default function handler(req, res) {
     else if (req.method === 'POST' || req.method === 'PUT') {
       // 写入数据
       const newData = req.body;
-      writeData(newData);
-      res.status(200).json({ success: true, message: '数据保存成功' });
+      const success = writeData(newData);
+
+      if (success) {
+        res.status(200).json({ success: true, message: '数据保存成功' });
+      } else {
+        res.status(500).json({ success: false, error: '保存数据失败' });
+      }
     }
     else {
       res.status(405).json({ error: '方法不允许' });
