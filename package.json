@@ -1,12 +1,13 @@
 {
   "name": "lol-5v5-booking",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "英雄联盟5v5预约对战页面",
   "main": "index.html",
   "scripts": {
     "dev": "vercel dev",
     "build": "echo 'Static site - no build needed'",
-    "start": "vercel dev"
+    "start": "vercel dev",
+    "db:init": "node scripts/init-db.mjs"
   },
   "repository": {
     "type": "git",
@@ -20,5 +21,8 @@
     "html"
   ],
   "author": "hengfengliya",
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "@vercel/postgres": "^0.10.0"
+  }
 }
