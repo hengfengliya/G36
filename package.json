@@ -3,12 +3,11 @@
   "version": "2.0.0",
   "description": "英雄联盟5v5预约对战页面",
   "main": "index.html",
-  "type": "module",
   "scripts": {
     "dev": "vercel dev",
     "build": "echo 'Static site - no build needed'",
     "start": "vercel dev",
-    "db:init": "node scripts/init-db.js"
+    "db:init": "node scripts/init-db.mjs"
   },
   "repository": {
     "type": "git",
