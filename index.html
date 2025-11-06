@@ -6,40 +6,89 @@
     <title>英雄联盟5v5预约对战</title>
     <!-- Vercel API Routes 作为数据库 (完全免费，支持读写) -->
     <script>
-        // Vercel API客户端
+        // Vercel API客户端（优化版）
         window.apiClient = {
             // 使用Vercel的API Routes
             apiUrl: '/api/teams',
+            retryAttempts: 3,
+            retryDelay: 1000,
 
-            // 读取数据
-            async getData() {
-                try {
-                    const response = await fetch(this.apiUrl);
-                    const data = await response.json();
-                    return data || { teams: { blue: [], red: [] }, presets: [] };
-                } catch (error) {
-                    console.error('读取数据失败:', error);
-                    return { teams: { blue: [], red: [] }, presets: [] };
+            // 延迟函数
+            sleep(ms) {
+                return new Promise(resolve => setTimeout(resolve, ms));
+            },
+
+            // 读取数据（带重试机制）
+            async getData(retries = this.retryAttempts) {
+                for (let i = 0; i < retries; i++) {
+                    try {
+                        const controller = new AbortController();
+                        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10秒超时
+
+                        const response = await fetch(this.apiUrl, {
+                            signal: controller.signal,
+                            cache: 'no-cache'
+                        });
+
+                        clearTimeout(timeoutId);
+
+                        if (!response.ok) {
+                            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                        }
+
+                        const data = await response.json();
+                        return data || { teams: { blue: [], red: [] }, presets: [] };
+
+                    } catch (error) {
+                        console.error(`读取数据失败 (尝试 ${i + 1}/${retries}):`, error.message);
+
+                        // 最后一次尝试失败
+                        if (i === retries - 1) {
+                            return { teams: { blue: [], red: [] }, presets: [], error: true };
+                        }
+
+                        // 等待后重试（指数退避）
+                        await this.sleep(this.retryDelay * Math.pow(2, i));
+                    }
                 }
             },
 
-            // 保存数据
-            async saveData(data) {
-                try {
-                    const response = await fetch(this.apiUrl, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify(data)
-                    });
+            // 保存数据（带重试机制）
+            async saveData(data, retries = this.retryAttempts) {
+                for (let i = 0; i < retries; i++) {
+                    try {
+                        const controller = new AbortController();
+                        const timeoutId = setTimeout(() => controller.abort(), 10000);
 
-                    const result = await response.json();
-                    return response.ok && result.success;
-                } catch (error) {
-                    console.error('保存数据失败:', error);
-                    return false;
+                        const response = await fetch(this.apiUrl, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify(data),
+                            signal: controller.signal
+                        });
+
+                        clearTimeout(timeoutId);
+
+                        if (!response.ok) {
+                            throw new Error(`HTTP ${response.status}`);
+                        }
+
+                        const result = await response.json();
+                        return result.success;
+
+                    } catch (error) {
+                        console.error(`保存数据失败 (尝试 ${i + 1}/${retries}):`, error.message);
+
+                        if (i === retries - 1) {
+                            return false;
+                        }
+
+                        await this.sleep(this.retryDelay * Math.pow(2, i));
+                    }
                 }
+                return false;
             }
         };
 
@@ -681,11 +730,30 @@
                     clearInterval(this.pollingInterval);
                 }
 
-                // 每5秒同步一次数据
-                this.pollingInterval = setInterval(async () => {
-                    if (this.isOnline) {
-                        try {
-                            const data = await window.apiClient.getData();
+                let failureCount = 0;
+                const maxFailures = 3;
+
+                // 智能轮询函数
+                const poll = async () => {
+                    if (!this.isOnline) return;
+
+                    // 根据页面可见性调整轮询频率
+                    const isVisible = !document.hidden;
+                    const pollFrequency = isVisible ? 5000 : 30000; // 可见5秒，不可见30秒
+
+                    try {
+                        const data = await window.apiClient.getData();
+
+                        // 检测错误状态
+                        if (data.error) {
+                            failureCount++;
+                            if (failureCount >= maxFailures) {
+                                console.warn('连接失败次数过多，切换到离线模式');
+                                this.fallbackToLocal();
+                                return;
+                            }
+                        } else {
+                            failureCount = 0; // 重置失败计数
 
                             // 检查数据是否有变化
                             const newBlue = data.teams?.blue || [];
@@ -697,12 +765,33 @@
                                 this.blueTeam = newBlue;
                                 this.redTeam = newRed;
                                 this.updateDisplay();
+                                console.log('✅ 数据已同步');
                             }
-                        } catch (error) {
-                            console.error('同步数据失败:', error);
                         }
+
+                        // 根据页面状态设置下次轮询
+                        this.pollingTimeout = setTimeout(poll, pollFrequency);
+
+                    } catch (error) {
+                        console.error('同步数据失败:', error);
+                        failureCount++;
+
+                        // 失败后延迟重试
+                        this.pollingTimeout = setTimeout(poll, 10000);
                     }
-                }, 5000);
+                };
+
+                // 监听页面可见性变化
+                document.addEventListener('visibilitychange', () => {
+                    if (!document.hidden && this.isOnline) {
+                        console.log('页面恢复可见，立即同步数据');
+                        clearTimeout(this.pollingTimeout);
+                        poll();
+                    }
+                });
+
+                // 启动轮询
+                poll();
             }
 
             fallbackToLocal() {
